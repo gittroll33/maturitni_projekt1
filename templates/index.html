@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mancala Projekt</title>
+</head>
+<body>
+    <nav>
+        <a href="/">Domů</a> | <a href="/zebricek">Žebříček</a>
+        {% if session.user %}
+            <span>Vítej, {{ session.user }}!</span> <a href="/logout">Odhlásit</a>
+        {% else %}
+            <form action="/login" method="post" style="display:inline;">
+                <input type="text" name="username" placeholder="Jméno">
+                <button type="submit">Přihlásit</button>
+            </form>
+        {% endif %}
+    </nav>
+
+    <h1>Mancala - Maturitní projekt</h1>
+    <p>Tento program simuluje deskovou hru Mancala s využitím Pygame a SQLite.</p>
+
+    <h3>Algoritmy</h3>
+    <p>Použitý algoritmus pro rozsévání: <code>while stones > 0: index = (index + 1) % 14 ...</code></p>
+
+    {% if session.user %}
+        <div style="background: #e0ffe0; padding: 20px;">
+            <h3>Sekce pro přihlášené</h3>
+            <p>Zde si můžete <a href="#">stáhnout hru</a>.</p>
+        </div>
+    {% else %}
+        <p>Pro přístup ke stažení se prosím přihlaste.</p>
+    {% endif %}
+</body>
+</html>
