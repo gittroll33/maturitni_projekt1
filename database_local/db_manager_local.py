@@ -14,6 +14,8 @@ def init_db():
         return
 
     conn = sqlite3.connect(DB_PATH)
+    # Zapnutí cizích klíčů pro DELETE ON CASCADE
+    conn.execute("PRAGMA foreign_keys = ON")
     with open(SQL_INIT_PATH, 'r', encoding='utf-8') as f:
         conn.executescript(f.read())
     conn.commit()
@@ -21,51 +23,45 @@ def init_db():
     generate_text_export()
 
 def save_game_result(p1_id, p1_score, p2_id, p2_score):
-    """
-    Uloží výsledek zápasu (M:N vztah).
-    Vytvoří záznam v 'zapasy' a dva záznamy v 'ucast_v_zapasu'.
-    """
+    """Uloží výsledek zápasu (M:N vztah)."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    # 1. Vytvoření zápasu
     cursor.execute("INSERT INTO zapasy DEFAULT VALUES")
     match_id = cursor.lastrowid
     
-    # 2. Vložení obou hráčů (M:N účast)
     participants = [
         (p1_id, match_id, p1_score, 1 if p1_score > p2_score else 0),
         (p2_id, match_id, p2_score, 1 if p2_score > p1_score else 0)
     ]
     cursor.executemany(
-        "INSERT INTO ucult_v_zapasu (uzivatel_id, zapas_id, skore, je_vitez) VALUES (?, ?, ?, ?)",
+        "INSERT INTO ucast_v_zapasu (uzivatel_id, zapas_id, skore, je_vitez) VALUES (?, ?, ?, ?)",
         participants
     )
     
     conn.commit()
     conn.close()
-    generate_text_export() # Po každém zápasu aktualizujeme čitelný text
+    generate_text_export()
 
 def generate_text_export():
-    """
-    Vygeneruje čitelný SQL Dump. 
-    Tohle je ten soubor, který ukážeš komisi jako 'čitelná data'.
-    """
+    """Vygeneruje čitelný SQL Dump."""
     conn = sqlite3.connect(DB_PATH)
     with open(TEXT_EXPORT_PATH, 'w', encoding='utf-8') as f:
         for line in conn.iterdump():
             f.write(f'{line}\n')
     conn.close()
-    print(f"✅ Data exportována do čitelné podoby: {TEXT_EXPORT_PATH}")
+    print(f"✅ Data exportována: {TEXT_EXPORT_PATH}")
+
+# --- TADY JSOU TY DOPLNĚNÉ/UPRAVENÉ FUNKCE ---
 
 def get_leaderboard():
-    """Příklad JOINu pro maturitu."""
+    """Vrátí jméno, skóre a ID (důležité pro mazání)."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # PŘIDÁNO u.id do SELECTu
     query = """
-        SELECT u.jmeno, SUM(uvz.skore) as celkem
+        SELECT u.jmeno, SUM(uvz.skore) as celkem, u.id
         FROM uzivatele u
-        JOIN ucult_v_zapasu uvz ON u.id = uvz.uzivatel_id
+        JOIN ucast_v_zapasu uvz ON u.id = uvz.uzivatel_id
         GROUP BY u.id
         ORDER BY celkem DESC
     """
@@ -73,6 +69,25 @@ def get_leaderboard():
     res = cursor.fetchall()
     conn.close()
     return res
+
+def delete_user(user_id):
+    """
+    Smaže uživatele podle ID. 
+    Splňuje podmínku 'Upravuje data v databázi (DELETE)'.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        # Musíme zapnout foreign keys, aby fungovalo ON DELETE CASCADE
+        conn.execute("PRAGMA foreign_keys = ON")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM uzivatele WHERE id = ?", (user_id,))
+        conn.commit()
+        print(f"🗑️ Uživatel ID {user_id} byl smazán.")
+    except Exception as e:
+        print(f"❌ Chyba při mazání: {e}")
+    finally:
+        conn.close()
+        generate_text_export() # Aktualizujeme textový export po smazání
 
 if __name__ == "__main__":
     init_db()

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Žebříček hráčů - Mancala</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; background-color: #f4f4f4; }
+        nav { margin-bottom: 20px; background: white; padding: 10px; border-radius: 5px; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        .btn-delete { color: white; background: #dc3545; padding: 5px 10px; text-decoration: none; border-radius: 3px; font-size: 0.8em; }
+        .btn-delete:hover { background: #c82333; }
+        .back-link { display: inline-block; margin-top: 20px; text-decoration: none; color: #007bff; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="/">Domů</a> | <strong>Žebříček</strong>
+        {% if session.user %}
+            <span style="float: right;">Přihlášen: <strong>{{ session.user }}</strong></span>
+        {% endif %}
+    </nav>
+
+    <h1>Žebříček nejlepších hráčů</h1>
+    <p>Data jsou načítána přímo z databáze SQLite pomocí SQL JOINu.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Pořadí</th>
+                <th>Jméno hráče</th>
+                <th>Celkové skóre</th>
+                {# Sloupec pro akci se zobrazí jen adminovi #}
+                {% if session.is_admin %}
+                    <th>Administrace</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for hrac in hraci %}
+            <tr>
+                <td>{{ loop.index }}.</td>
+                <td>{{ hrac[0] }}</td> {# Jméno #}
+                <td>{{ hrac[1] }}</td> {# Skóre #}
+                
+                {% if session.is_admin %}
+                <td>
+                    {# hrac[2] je ID uživatele, které jsme přidali do SELECTu v db_manageru #}
+                    <a href="{{ url_for('smazat_hrace', user_id=hrac[2]) }}" 
+                       class="btn-delete" 
+                       onclick="return confirm('Opravdu chcete smazat tohoto uživatele a všechny jeho zápasy?')">
+                       Smazat uživatele
+                    </a>
+                </td>
+                {% endif %}
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="{{ '4' if session.is_admin else '3' }}" style="text-align: center;">
+                    Zatím žádná data v žebříčku nejsou.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="/" class="back-link">← Zpět na hlavní stránku</a>
+
+</body>
+</html>

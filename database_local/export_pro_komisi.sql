@@ -1,4 +1,15 @@
 BEGIN TRANSACTION;
+CREATE TABLE ucast_v_zapasu (
+    uzivatel_id INTEGER,
+    zapas_id INTEGER,
+    skore INTEGER,
+    je_vitez BOOLEAN,
+    PRIMARY KEY (uzivatel_id, zapas_id),
+    FOREIGN KEY (uzivatel_id) REFERENCES uzivatele(id) ON DELETE CASCADE,
+    FOREIGN KEY (zapas_id) REFERENCES zapasy(id) ON DELETE CASCADE
+);
+INSERT INTO "ucast_v_zapasu" VALUES(2,1,25,1);
+INSERT INTO "ucast_v_zapasu" VALUES(3,1,15,0);
 CREATE TABLE ucult_v_zapasu (
     uzivatel_id INTEGER,
     zapas_id INTEGER,
@@ -22,6 +33,8 @@ CREATE TABLE zapasy (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     datum TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+INSERT INTO "zapasy" VALUES(1,'2026-01-30 13:51:03');
 DELETE FROM "sqlite_sequence";
-INSERT INTO "sqlite_sequence" VALUES('uzivatele',3);
+INSERT INTO "sqlite_sequence" VALUES('uzivatele',9);
+INSERT INTO "sqlite_sequence" VALUES('zapasy',1);
 COMMIT;
