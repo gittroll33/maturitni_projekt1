@@ -40,10 +40,14 @@ def zebricek():
 
 @app.route('/smazat/<int:user_id>')
 def smazat_hrace(user_id):
-    # Jen přihlášený admin může mazat
+    # 1. Provedeme smazání v databázi
     if session.get('is_admin'):
+        from database_local.db_manager_local import delete_user
         delete_user(user_id)
-        print(f"DEBUG: Admin smazal uživatele {user_id}")
+        print(f"DEBUG: Hráč {user_id} smazán.") # Uvidíš v terminálu
+    
+    # 2. Tady je to kouzlo: redirect nás pošle zpět na zobrazení žebříčku
+    # Takže uživatel uvidí jen to, že řádek zmizel
     return redirect(url_for('zebricek'))
 
 if __name__ == '__main__':

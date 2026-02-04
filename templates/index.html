@@ -1,34 +1,80 @@
 <!DOCTYPE html>
-<html>
+<html lang="cs">
 <head>
-    <title>Mancala Projekt</title>
+    <meta charset="UTF-8">
+    <title>Mancala - Maturitní projekt</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; margin: 0; background: #f0f2f5; color: #333; }
+        .container { max-width: 900px; margin: 40px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #007bff; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .nav { background: #333; padding: 10px 0; text-align: center; }
+        .nav a { color: white; margin: 0 15px; text-decoration: none; font-weight: bold; }
+        .nav a:hover { color: #007bff; }
+        .alert { background: #e7f3ff; border-left: 5px solid #007bff; padding: 15px; margin: 20px 0; }
+        code { background: #272822; color: #f8f8f2; padding: 15px; display: block; border-radius: 5px; overflow-x: auto; font-family: 'Consolas', monospace; }
+        .admin-section { border: 2px dashed #dc3545; padding: 15px; margin-top: 20px; border-radius: 5px; }
+    </style>
 </head>
 <body>
-    <nav>
-        <a href="/">Domů</a> | <a href="/zebricek">Žebříček</a>
-        {% if session.user %}
-            <span>Vítej, {{ session.user }}!</span> <a href="/logout">Odhlásit</a>
-        {% else %}
-            <form action="/login" method="post" style="display:inline;">
-                <input type="text" name="username" placeholder="Jméno">
-                <button type="submit">Přihlásit</button>
-            </form>
-        {% endif %}
-    </nav>
 
-    <h1>Mancala - Maturitní projekt</h1>
-    <p>Tento program simuluje deskovou hru Mancala s využitím Pygame a SQLite.</p>
-
-    <h3>Algoritmy</h3>
-    <p>Použitý algoritmus pro rozsévání: <code>while stones > 0: index = (index + 1) % 14 ...</code></p>
-
+<div class="nav">
+    <a href="/">Domů</a>
+    <a href="/zebricek">Žebříček</a>
     {% if session.user %}
-        <div style="background: #e0ffe0; padding: 20px;">
-            <h3>Sekce pro přihlášené</h3>
-            <p>Zde si můžete <a href="#">stáhnout hru</a>.</p>
+        <a href="/logout" style="color: #ff4d4d;">Odhlásit ({{ session.user }})</a>
+    {% endif %}
+</div>
+
+<div class="container">
+    <h1>Hra Mancala - Správa databáze</h1>
+
+    {% if not session.user %}
+        <div class="alert">
+            <h3>Přihlášení do systému</h3>
+            <form action="/login" method="post">
+                <input type="text" name="username" placeholder="Jméno (zkus 'admin')" required>
+                <button type="submit">Vstoupit</button>
+            </form>
         </div>
     {% else %}
-        <p>Pro přístup ke stažení se prosím přihlaste.</p>
+        <p>Vítej, <strong>{{ session.user }}</strong>! Jsi úspěšně přihlášen do portálu pro správu výsledků.</p>
+        
+        {% if session.is_admin %}
+            <div class="admin-section">
+                <h3 style="color: #dc3545;">Administrátorská zóna</h3>
+                <p>Máš právo mazat uživatele a spravovat integritu databáze v sekci Žebříček.</p>
+            </div>
+        {% endif %}
     {% endif %}
+
+    <h2>O projektu</h2>
+    <p>Tento program implementuje starověkou deskovou hru Mancala v jazyce Python s využitím knihovny Pygame pro GUI a SQLite pro ukládání výsledků.</p>
+
+    <h3>Klíčové algoritmy</h3>
+    <p>Hlavní logikou hry je "rozsévání" kamenů po jamkách. Zde je zjednodušený pseudokód logiky tahu:</p>
+    <code>
+    FUNKCE proved_tah(index_jamky):
+        pocet_kamenu = jamky[index_jamky]
+        jamky[index_jamky] = 0
+        
+        DOKUD pocet_kamenu > 0:
+            posun_se_na_dalsi_jamku()
+            POKUD jamka_patri_hraci:
+                přidej_kámen(jamka)
+                pocet_kamenu -= 1
+        
+        POKUD posledni_kamen_padl_do_mancaly:
+            hrac_tahne_znovu()
+    </code>
+
+    <h3>Databázové schéma (ER diagram)</h3>
+    <p>Projekt využívá 3 tabulky v BCNF normalizaci:</p>
+    <ul>
+        <li><strong>uzivatele</strong>: Identita hráčů.</li>
+        <li><strong>zapasy</strong>: Unikátní ID každé herní partie.</li>
+        <li><strong>ucast_v_zapasu</strong>: M:N vazební tabulka se skóre (JOIN cíl).</li>
+    </ul>
+</div>
+
 </body>
 </html>
