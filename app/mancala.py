@@ -45,7 +45,7 @@ def save_settings(settings):
 # Inicializace nastavení při spuštění aplikace
 user_settings = load_settings()
 
-ASSETS_PATH = os.path.join(os.path.dirname(__file__), "assets")
+ASSETS_PATH = os.path.dirname(__file__)
 WIDTH, HEIGHT = 1280, 720
 
 pygame.init()
