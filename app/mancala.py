@@ -4,6 +4,17 @@ import os
 import random
 import json
 
+# --- PŘIDÁNO: Propojení s databázovým managerem ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Go up one directory (..) to reach the root, then into database_local
+sys.path.append(os.path.join(BASE_DIR, "..", "database_local"))
+try:
+    from db_manager_local import save_game_result
+except ImportError as e:
+    print(f"❌ Napojení na DB selhalo: {e}")
+    save_game_result = None
+# --------------------------------------------------
+
 """
 Mancala Game - Maturitní projekt
 Tento skript implementuje logiku hry Mancala s grafickým rozhraním v Pygame,
@@ -19,14 +30,11 @@ CONFIG_FILE = "settings.json"
 def load_settings():
     """
     Načte uživatelské nastavení ze souboru JSON.
-    
-    Returns:
-        dict: Slovník s uloženým nastavením. Pokud soubor neexistuje nebo je poškozen,
-              vrátí výchozí hodnoty (windowed_mode: True).
     """
-    if os.path.exists(CONFIG_FILE):
+    config_path = os.path.join(BASE_DIR, CONFIG_FILE)
+    if os.path.exists(config_path):
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(config_path, "r") as f:
                 return json.load(f)
         except:
             pass
@@ -35,11 +43,9 @@ def load_settings():
 def save_settings(settings):
     """
     Uloží aktuální konfiguraci aplikace do externího souboru JSON.
-    
-    Args:
-        settings (dict): Slovník obsahující data k uložení (např. režim zobrazení).
     """
-    with open(CONFIG_FILE, "w") as f:
+    config_path = os.path.join(BASE_DIR, CONFIG_FILE)
+    with open(config_path, "w") as f:
         json.dump(settings, f)
 
 # Inicializace nastavení při spuštění aplikace
@@ -69,23 +75,19 @@ except:
 board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]
 current_player = 0 
 game_over = False
+db_updated = False # PŘIDÁNO: Aby se do DB zapsalo jen jednou za hru
 
 def reset_game():
     """
     Uvede hru do původního stavu. Resetuje herní desku, počítadlo tahů a stav ukončení.
     """
-    global board, current_player, game_over
+    global board, current_player, game_over, db_updated
     board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]
     current_player = 0
     game_over = False
+    db_updated = False # PŘIDÁNO: Reset příznaku uložení
 
 def make_move(start_index):
-    """
-    Provede kompletní herní tah včetně rozsévání semen a kontroly speciálních pravidel.
-    
-    Args:
-        start_index (int): Index důlku, ze kterého hráč začíná rozesévat semena.
-    """
     global current_player, board, game_over
     stones = board[start_index]
     if stones == 0: return 
@@ -94,13 +96,11 @@ def make_move(start_index):
     current_pos = start_index
     while stones > 0:
         current_pos = (current_pos + 1) % 14
-        # Pravidlo: Vynechání soupeřovy pokladnice
         if current_player == 0 and current_pos == 13: continue
         if current_player == 1 and current_pos == 6: continue
         board[current_pos] += 1
         stones -= 1
 
-    # Pravidlo: Zajetí semen (Capture)
     if board[current_pos] == 1:
         if current_player == 0 and 0 <= current_pos <= 5:
             opposite = 12 - current_pos
@@ -117,17 +117,12 @@ def make_move(start_index):
 
     check_end_game()
     
-    # Pravidlo: Tah navíc (pokud poslední semeno skončí ve vlastní pokladnici)
     if (current_player == 0 and current_pos == 6) or (current_player == 1 and current_pos == 13):
         return 
     current_player = 1 - current_player
 
 def check_end_game():
-    """
-    Kontroluje, zda jsou splněny podmínky pro ukončení hry (jedna strana je prázdná).
-    Pokud ano, přesune zbývající semena do pokladnic a ukončí hru.
-    """
-    global board, game_over
+    global board, game_over, db_updated
     if sum(board[0:6]) == 0 or sum(board[7:13]) == 0:
         board[6] += sum(board[0:6])
         board[13] += sum(board[7:13])
@@ -135,6 +130,13 @@ def check_end_game():
             board[i] = 0
             board[i+7] = 0
         game_over = True
+
+        # --- PŘIDÁNO: Zápis výsledku do DB ---
+        if not db_updated and save_game_result:
+            # Pro demo: Hráč 1 (Dole) má ID 2, Hráč 2 (Nahoře) má ID 3
+            save_game_result(2, board[6], 3, board[13])
+            db_updated = True
+            print(f"💾 Výsledek uložen do DB: {board[6]} - {board[13]}")
 
 # ==============================
 #  ČÁST 3 — GRAFIKA A VYKRESLOVÁNÍ

@@ -25,22 +25,36 @@ def init_db():
 def save_game_result(p1_id, p1_score, p2_id, p2_score):
     """Uloží výsledek zápasu (M:N vztah)."""
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO zapasy DEFAULT VALUES")
-    match_id = cursor.lastrowid
     
-    participants = [
-        (p1_id, match_id, p1_score, 1 if p1_score > p2_score else 0),
-        (p2_id, match_id, p2_score, 1 if p2_score > p1_score else 0)
-    ]
-    cursor.executemany(
-        "INSERT INTO ucast_v_zapasu (uzivatel_id, zapas_id, skore, je_vitez) VALUES (?, ?, ?, ?)",
-        participants
-    )
-    
-    conn.commit()
-    conn.close()
-    generate_text_export()
+    try:
+        # Ensure users exist before saving game result
+        cursor.execute("INSERT OR IGNORE INTO uzivatele (id, jmeno, email, heslo, role) VALUES (?, ?, ?, ?, ?)",
+                      (p1_id, f"Hráč {p1_id}", f"hrac{p1_id}@game.local", "password", "user"))
+        cursor.execute("INSERT OR IGNORE INTO uzivatele (id, jmeno, email, heslo, role) VALUES (?, ?, ?, ?, ?)",
+                      (p2_id, f"Hráč {p2_id}", f"hrac{p2_id}@game.local", "password", "user"))
+        
+        cursor.execute("INSERT INTO zapasy DEFAULT VALUES")
+        match_id = cursor.lastrowid
+        
+        participants = [
+            (p1_id, match_id, p1_score, 1 if p1_score > p2_score else 0),
+            (p2_id, match_id, p2_score, 1 if p2_score > p1_score else 0)
+        ]
+        cursor.executemany(
+            "INSERT INTO ucast_v_zapasu (uzivatel_id, zapas_id, skore, je_vitez) VALUES (?, ?, ?, ?)",
+            participants
+        )
+        
+        conn.commit()
+        print(f"💾 Výsledek uložen: Hráč {p1_id} ({p1_score}) vs Hráč {p2_id} ({p2_score})")
+    except Exception as e:
+        print(f"❌ Chyba při ukládání: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+        generate_text_export()
 
 def generate_text_export():
     """Vygeneruje čitelný SQL Dump."""
