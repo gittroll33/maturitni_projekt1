@@ -3,9 +3,10 @@ from flask import Flask, render_template, request, session, redirect, url_for
 import sys
 import os
 
-# --- LOGIKA PRO IMPORTY MIMO SLOŽKU ---
-# 1. Získáme cestu ke složce, kde leží tento soubor (web)
+# --- LOGIKA PRO CESTY A IMPORTY ---
+# 1. Získáme absolutní cestu ke složce, kde leží tento soubor (web)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # 2. Získáme cestu o úroveň výš (kořen projektu maturitni_projekt1)
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
@@ -13,20 +14,25 @@ PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-# Teď už můžeme importovat pomocí tečkové notace: složka.soubor
+# 4. Definujeme přesnou cestu ke složce s obrázky
+# Tímto opravujeme problém s načítáním obrázků
+IMG_FOLDER = os.path.join(BASE_DIR, 'imgs')
+
+# Importy z tvé databázové vrstvy
 try:
     from database_local.db_manager_local import get_leaderboard, delete_user, save_game_result
 except ImportError as e:
     print(f"Chyba: Nepodařilo se najít databázový modul. Zkontrolujte strukturu složek. {e}")
-# --------------------------------------
 
+# Inicializace Flasku s opravenou cestou k obrázkům
 app = Flask(__name__, 
             template_folder='templates',
-            static_url_path='/imgs',     # URL adresa v prohlížeči bude začínat /imgs
-            static_folder='imgs')        # Fyzická složka v projektu se jmenuje imgs
+            static_url_path='/imgs',     # URL na webu (např. /imgs/pravidla1.png)
+            static_folder=IMG_FOLDER)    # Fyzické umístění na disku
+
 app.secret_key = 'your-secret-key-mancala'
 
-# Hardcoded credentials for demo
+# --- DEMO UŽIVATELÉ ---
 USERS = {
     'admin': {'password': 'admin123', 'is_admin': True},
     'petr': {'password': 'heslo1', 'is_admin': False},
@@ -43,10 +49,7 @@ def check_session():
 
 @app.route('/')
 def index():
-    """
-    Hlavní stránka s popisem projektu, pravidly a autory.
-    Zde se zobrazují i tvé nahrané obrázky.
-    """
+    """Hlavní stránka s popisem projektu, pravidly a autory."""
     return render_template('index.html')
 
 @app.route('/login', methods=['POST'])
@@ -69,7 +72,7 @@ def logout():
 
 @app.route('/zebricek')
 def zebricek():
-    """Zobrazení databázových dat - žebříček hráčů (využívá JOIN v SQL)."""
+    """Zobrazení databázových dat - žebříček hráčů."""
     try:
         hraci = get_leaderboard()
     except Exception as e:
@@ -87,4 +90,5 @@ def smazat_hrace(user_id):
     return redirect(url_for('zebricek'))
 
 if __name__ == '__main__':
+    # Debug mode je zapnutý pro snazší vývoj
     app.run(debug=True, host='localhost', port=5000)
