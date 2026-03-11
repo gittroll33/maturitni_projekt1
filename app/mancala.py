@@ -71,11 +71,16 @@ except:
 #  ČÁST 2 — HERNÍ LOGIKA
 # ==============================
 
-# Inicializace desky: 0-5 (hráč dole), 6 (pokladnice dole), 7-12 (hráč nahoře), 13 (pokladnice nahoře)
+# Inicializace desky: 0-5 (hráč dole), 6 (pokladnice vpravo), 7-12 (hráč nahoře), 13 (pokladnice vlevo)
 board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]
 current_player = 0 
 game_over = False
 db_updated = False # PŘIDÁNO: Aby se do DB zapsalo jen jednou za hru
+
+# --- PŘIDÁNO: Proměnné pro jména ---
+player1_name = ""
+player2_name = ""
+active_input = 1 # 1 pro Player 1, 2 pro Player 2
 
 def reset_game():
     """
@@ -88,6 +93,9 @@ def reset_game():
     db_updated = False # PŘIDÁNO: Reset příznaku uložení
 
 def make_move(start_index):
+    """
+    Provede kompletní herní tah včetně rozsévání semen a kontroly speciálních pravidel.
+    """
     global current_player, board, game_over
     stones = board[start_index]
     if stones == 0: return 
@@ -96,11 +104,13 @@ def make_move(start_index):
     current_pos = start_index
     while stones > 0:
         current_pos = (current_pos + 1) % 14
+        # Pravidlo: Vynechání soupeřovy pokladnice
         if current_player == 0 and current_pos == 13: continue
         if current_player == 1 and current_pos == 6: continue
         board[current_pos] += 1
         stones -= 1
 
+    # Pravidlo: Zajetí semen (Capture)
     if board[current_pos] == 1:
         if current_player == 0 and 0 <= current_pos <= 5:
             opposite = 12 - current_pos
@@ -117,11 +127,15 @@ def make_move(start_index):
 
     check_end_game()
     
+    # Pravidlo: Tah navíc (pokud poslední semeno skončí ve vlastní pokladnici)
     if (current_player == 0 and current_pos == 6) or (current_player == 1 and current_pos == 13):
         return 
     current_player = 1 - current_player
 
 def check_end_game():
+    """
+    Kontroluje, zda jsou splněny podmínky pro ukončení hry.
+    """
     global board, game_over, db_updated
     if sum(board[0:6]) == 0 or sum(board[7:13]) == 0:
         board[6] += sum(board[0:6])
@@ -131,12 +145,11 @@ def check_end_game():
             board[i+7] = 0
         game_over = True
 
-        # --- PŘIDÁNO: Zápis výsledku do DB ---
+        # --- PŘIDÁNO: Zápis skutečných jmen do DB ---
         if not db_updated and save_game_result:
-            # Pro demo: Hráč 1 (Dole) má ID 2, Hráč 2 (Nahoře) má ID 3
-            save_game_result(2, board[6], 3, board[13])
+            save_game_result(player1_name, board[6], player2_name, board[13])
             db_updated = True
-            print(f"💾 Výsledek uložen do DB: {board[6]} - {board[13]}")
+            print(f"💾 Výsledek uložen do DB: {player1_name} vs {player2_name}")
 
 # ==============================
 #  ČÁST 3 — GRAFIKA A VYKRESLOVÁNÍ
@@ -144,14 +157,7 @@ def check_end_game():
 
 def draw_seeds(screen, count, center_x, center_y, radius=30):
     """
-    Vykreslí jednotlivá semena (kuličky) do důlku s náhodným rozptylem pro realističtější vzhled.
-    
-    Args:
-        screen (pygame.Surface): Plocha, na kterou se vykresluje.
-        count (int): Počet semen k vykreslení.
-        center_x (int): X souřadnice středu důlku.
-        center_y (int): Y souřadnice středu důlku.
-        radius (int): Maximální vzdálenost kuličky od středu důlku.
+    Vykreslí jednotlivá semena do důlku.
     """
     random.seed(count + center_x + center_y) 
     for _ in range(count):
@@ -161,12 +167,20 @@ def draw_seeds(screen, count, center_x, center_y, radius=30):
         pygame.draw.circle(screen, color, (center_x + off_x, center_y + off_y), 7)
         pygame.draw.circle(screen, (20, 20, 20), (center_x + off_x, center_y + off_y), 7, 1)
 
+# --- PŘIDÁNO: Funkce pro obrazovku jmen ---
+def draw_name_input(screen):
+    screen.fill((30, 30, 30))
+    draw_text_center(screen, "ZADEJTE JMÉNA HRÁČŮ", 100, (255, 215, 0))
+    c1 = (255, 255, 255) if active_input == 1 else (100, 100, 100)
+    c2 = (255, 255, 255) if active_input == 2 else (100, 100, 100)
+    draw_text_center(screen, f"Hráč 1 (Dole): {player1_name}{'|' if active_input == 1 else ''}", 250, c1)
+    draw_text_center(screen, f"Hráč 2 (Nahoře): {player2_name}{'|' if active_input == 2 else ''}", 350, c2)
+    if player1_name.strip() and player2_name.strip():
+        draw_text_center(screen, "Stiskni ENTER pro start", 500, (0, 255, 0))
+
 def draw_board(screen):
     """
-    Vykreslí herní desku, důlky, pokladnice, semena a aktuální stav hry (kdo je na tahu / vítěz).
-    
-    Args:
-        screen (pygame.Surface): Plocha, na kterou se vykresluje.
+    Vykreslí herní desku.
     """
     w, h = screen.get_size()
     if background_texture:
@@ -197,18 +211,21 @@ def draw_board(screen):
     draw_seeds(screen, board[6], cx + 430, h // 2, radius=25)
     draw_seeds(screen, board[13], cx - 430, h // 2, radius=25)
 
-    screen.blit(font.render(str(board[6]), True, (255, 255, 255)), (cx + 420, h // 2 + 100))
-    screen.blit(font.render(str(board[13]), True, (255, 255, 255)), (cx - 440, h // 2 + 100))
+    # --- UPRAVENO: Zobrazení jmen u pokladnic ---
+    p1_label = font.render(f"{player1_name}: {board[6]}", True, (255, 255, 255))
+    p2_label = font.render(f"{player2_name}: {board[13]}", True, (255, 255, 255))
+    screen.blit(p1_label, (cx + 380, h // 2 + 100))
+    screen.blit(p2_label, (cx - 480, h // 2 + 100))
 
-    # Stavové texty (kdo hraje / kdo vyhrál)
+    # Stavové texty
     if not game_over:
-        status = "Hráč DOLE" if current_player == 0 else "Hráč NAHOŘE"
+        status = player1_name if current_player == 0 else player2_name
         color = (50, 100, 255) if current_player == 0 else (255, 80, 80)
         t = font.render(f"Na tahu: {status}", True, color)
         screen.blit(t, (cx - t.get_width() // 2, 40))
     else:
-        if board[6] > board[13]: res = "Hráč DOLE vyhrál!"
-        elif board[13] > board[6]: res = "Hráč NAHOŘE vyhrál!"
+        if board[6] > board[13]: res = f"{player1_name} vyhrál!"
+        elif board[13] > board[6]: res = f"{player2_name} vyhrál!"
         else: res = "Remíza!"
         t = MENU_FONT.render(res, True, (255, 215, 0))
         screen.blit(t, (cx - t.get_width() // 2, 30))
@@ -220,23 +237,10 @@ def draw_board(screen):
 # ==============================
 
 def draw_text_center(screen, text, y, color=(240, 240, 240)):
-    """
-    Pomocná funkce pro vykreslení vycentrovaného textu na obrazovku.
-    """
     t = MENU_FONT.render(text, True, color)
     screen.blit(t, (screen.get_width() // 2 - t.get_width() // 2, y))
 
 def index_from_click(pos, screen):
-    """
-    Převede souřadnice kliknutí myši na index důlku v poli 'board'.
-    
-    Args:
-        pos (tuple): (x, y) souřadnice kliknutí.
-        screen (pygame.Surface): Aktuální plocha okna (pro výpočet středu).
-        
-    Returns:
-        int or None: Index důlku (0-12) nebo None, pokud bylo kliknuto mimo.
-    """
     w, h = screen.get_size()
     cx, mx, my = w // 2, pos[0], pos[1]
     for i in range(6):
@@ -257,7 +261,6 @@ while True:
         if windowed_mode: screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
         else: screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         
-        # Uložíme nastavení pokud došlo ke změně
         user_settings["windowed_mode"] = windowed_mode
         save_settings(user_settings)
         apply_mode = False
@@ -267,6 +270,23 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit(); sys.exit()
         
+        # --- PŘIDÁNO: Ovládání vstupu jmen ---
+        if state == "NAME_INPUT" and event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                if active_input == 1 and player1_name.strip(): active_input = 2
+                elif active_input == 2 and player2_name.strip(): 
+                    state = "GAME"
+                    reset_game()
+            elif event.key == pygame.K_BACKSPACE:
+                if active_input == 1: player1_name = player1_name[:-1]
+                else: player2_name = player2_name[:-1]
+            elif event.key == pygame.K_ESCAPE: state = "MENU"
+            else:
+                if len(player1_name if active_input == 1 else player2_name) < 12:
+                    if event.unicode.isalnum() or event.unicode == " ":
+                        if active_input == 1: player1_name += event.unicode
+                        else: player2_name += event.unicode
+
         if event.type == pygame.KEYDOWN:
             if state == "SETTINGS":
                 if event.key == pygame.K_RETURN: 
@@ -278,18 +298,22 @@ while True:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if state == "MENU":
                 h_mid = screen.get_height() // 2
-                if h_mid - 80 < my < h_mid - 20: reset_game(); state = "GAME"
+                if h_mid - 80 < my < h_mid - 20: 
+                    # --- UPRAVENO: Místo resetu jdeme na zadání jmen ---
+                    player1_name = ""; player2_name = ""; active_input = 1
+                    state = "NAME_INPUT"
                 elif h_mid < my < h_mid + 50: state = "SETTINGS"
                 elif h_mid + 60 < my < h_mid + 140: pygame.quit(); sys.exit()
             elif state == "GAME" and not game_over:
                 idx = index_from_click((mx, my), screen)
                 if idx is not None:
-                    # Kontrola, zda hráč klikl na svou stranu
                     if (current_player == 0 and 0 <= idx <= 5) or (current_player == 1 and 7 <= idx <= 12):
                         make_move(idx)
 
     # Vykreslování podle stavu aplikace
-    if state == "MENU":
+    if state == "NAME_INPUT":
+        draw_name_input(screen)
+    elif state == "MENU":
         screen.fill((40, 40, 40))
         draw_text_center(screen, "HRÁT", screen.get_height() // 2 - 60)
         draw_text_center(screen, "NASTAVENÍ", screen.get_height() // 2)

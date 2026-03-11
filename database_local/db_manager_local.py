@@ -10,11 +10,10 @@ TEXT_EXPORT_PATH = os.path.join(BASE_DIR, "export_pro_komisi.sql")
 def init_db():
     """Inicializuje DB a vytvoří tabulky podle SQL skriptu."""
     if not os.path.exists(SQL_INIT_PATH):
-        print(f"Varování: {SQL_INIT_PATH} nenalezen. Vytvořte jej pro správnou inicializaci.")
+        print(f"Varování: {SQL_INIT_PATH} nenalezen.")
         return
 
     conn = sqlite3.connect(DB_PATH)
-    # Zapnutí cizích klíčů pro DELETE ON CASCADE
     conn.execute("PRAGMA foreign_keys = ON")
     with open(SQL_INIT_PATH, 'r', encoding='utf-8') as f:
         conn.executescript(f.read())
@@ -22,22 +21,36 @@ def init_db():
     conn.close()
     generate_text_export()
 
-def save_game_result(p1_id, p1_score, p2_id, p2_score):
-    """Uloží výsledek zápasu (M:N vztah)."""
+def get_or_create_user(cursor, jmeno):
+    """Pomocná funkce: Najde ID uživatele podle jména, nebo vytvoří nového."""
+    cursor.execute("SELECT id FROM uzivatele WHERE jmeno = ?", (jmeno,))
+    res = cursor.fetchone()
+    if res:
+        return res[0]
+    else:
+        # Vytvoření nového uživatele s výchozími údaji
+        cursor.execute(
+            "INSERT INTO uzivatele (jmeno, email, heslo, role) VALUES (?, ?, ?, ?)",
+            (jmeno, f"{jmeno.lower()}@mancala.local", "password123", "user")
+        )
+        return cursor.lastrowid
+
+def save_game_result(p1_name, p1_score, p2_name, p2_score):
+    """Uloží výsledek zápasu (M:N vztah přes tabulku ucast_v_zapasu)."""
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
     
     try:
-        # Ensure users exist before saving game result
-        cursor.execute("INSERT OR IGNORE INTO uzivatele (id, jmeno, email, heslo, role) VALUES (?, ?, ?, ?, ?)",
-                      (p1_id, f"Hráč {p1_id}", f"hrac{p1_id}@game.local", "password", "user"))
-        cursor.execute("INSERT OR IGNORE INTO uzivatele (id, jmeno, email, heslo, role) VALUES (?, ?, ?, ?, ?)",
-                      (p2_id, f"Hráč {p2_id}", f"hrac{p2_id}@game.local", "password", "user"))
+        # 1. Získání ID uživatelů podle jmen z Pygame
+        p1_id = get_or_create_user(cursor, p1_name)
+        p2_id = get_or_create_user(cursor, p2_name)
         
+        # 2. Vytvoření záznamu o zápasu
         cursor.execute("INSERT INTO zapasy DEFAULT VALUES")
         match_id = cursor.lastrowid
         
+        # 3. Rozdělení výsledků do spojovací tabulky (M:N)
         participants = [
             (p1_id, match_id, p1_score, 1 if p1_score > p2_score else 0),
             (p2_id, match_id, p2_score, 1 if p2_score > p1_score else 0)
@@ -48,7 +61,7 @@ def save_game_result(p1_id, p1_score, p2_id, p2_score):
         )
         
         conn.commit()
-        print(f"💾 Výsledek uložen: Hráč {p1_id} ({p1_score}) vs Hráč {p2_id} ({p2_score})")
+        print(f"💾 Výsledek uložen: {p1_name} ({p1_score}) vs {p2_name} ({p2_score})")
     except Exception as e:
         print(f"❌ Chyba při ukládání: {e}")
         conn.rollback()
@@ -56,22 +69,42 @@ def save_game_result(p1_id, p1_score, p2_id, p2_score):
         conn.close()
         generate_text_export()
 
-def generate_text_export():
-    """Vygeneruje čitelný SQL Dump."""
+def update_user_name(user_id, new_name):
+    """
+    Upraví jméno uživatele.
+    Splňuje podmínku 'Upravuje data v databázi (UPDATE)'.
+    """
     conn = sqlite3.connect(DB_PATH)
-    with open(TEXT_EXPORT_PATH, 'w', encoding='utf-8') as f:
-        for line in conn.iterdump():
-            f.write(f'{line}\n')
-    conn.close()
-    print(f"✅ Data exportována: {TEXT_EXPORT_PATH}")
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE uzivatele SET jmeno = ? WHERE id = ?", (new_name, user_id))
+        conn.commit()
+        print(f"📝 Uživatel ID {user_id} změněn na '{new_name}'.")
+    except Exception as e:
+        print(f"❌ Chyba při aktualizaci: {e}")
+    finally:
+        conn.close()
+        generate_text_export()
 
-# --- TADY JSOU TY DOPLNĚNÉ/UPRAVENÉ FUNKCE ---
+def delete_user(user_id):
+    """Smaže uživatele. Díky ON DELETE CASCADE se smažou i jeho účasti v zápasech."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM uzivatele WHERE id = ?", (user_id,))
+        conn.commit()
+        print(f"🗑️ Uživatel ID {user_id} smazán.")
+    except Exception as e:
+        print(f"❌ Chyba při mazání: {e}")
+    finally:
+        conn.close()
+        generate_text_export()
 
 def get_leaderboard():
-    """Vrátí jméno, skóre a ID (důležité pro mazání)."""
+    """Vrátí žebříček pomocí JOINu."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # PŘIDÁNO u.id do SELECTu
     query = """
         SELECT u.jmeno, SUM(uvz.skore) as celkem, u.id
         FROM uzivatele u
@@ -84,24 +117,14 @@ def get_leaderboard():
     conn.close()
     return res
 
-def delete_user(user_id):
-    """
-    Smaže uživatele podle ID. 
-    Splňuje podmínku 'Upravuje data v databázi (DELETE)'.
-    """
+def generate_text_export():
+    """Vygeneruje čitelný SQL Dump pro komisi."""
     conn = sqlite3.connect(DB_PATH)
-    try:
-        # Musíme zapnout foreign keys, aby fungovalo ON DELETE CASCADE
-        conn.execute("PRAGMA foreign_keys = ON")
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM uzivatele WHERE id = ?", (user_id,))
-        conn.commit()
-        print(f"🗑️ Uživatel ID {user_id} byl smazán.")
-    except Exception as e:
-        print(f"❌ Chyba při mazání: {e}")
-    finally:
-        conn.close()
-        generate_text_export() # Aktualizujeme textový export po smazání
+    with open(TEXT_EXPORT_PATH, 'w', encoding='utf-8') as f:
+        for line in conn.iterdump():
+            f.write(f'{line}\n')
+    conn.close()
+    print(f"✅ Export vytvořen: {TEXT_EXPORT_PATH}")
 
 if __name__ == "__main__":
     init_db()
