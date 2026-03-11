@@ -8,7 +8,7 @@
         .container { max-width: 950px; margin: 40px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1 { color: #007bff; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         h2 { color: #444; margin-top: 30px; border-left: 4px solid #007bff; padding-left: 10px; }
-        .nav { background: #333; padding: 15px 0; text-align: center; sticky: top; }
+        .nav { background: #333; padding: 15px 0; text-align: center; position: sticky; top: 0; z-index: 1000; }
         .nav a { color: white; margin: 0 15px; text-decoration: none; font-weight: bold; transition: 0.3s; }
         .nav a:hover { color: #007bff; }
         .alert { background: #e7f3ff; border-left: 5px solid #007bff; padding: 20px; margin: 20px 0; border-radius: 0 5px 5px 0; }
@@ -16,9 +16,19 @@
         .admin-section { border: 2px dashed #dc3545; padding: 15px; margin-top: 20px; border-radius: 5px; background: #fff5f5; }
         .badge { background: #6c757d; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.9em; margin-right: 5px; }
         .grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
-        .card { flex: 1; min-width: 250px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        .card { flex: 1; min-width: 250px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; flex-direction: column; justify-content: space-between; }
         .git-btn { display: inline-block; background: #24292e; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 10px; }
         .git-btn:hover { background: #444; }
+        
+        /* Styl pro obrázky v sekcích */
+        .display-img { 
+            max-width: 100%; 
+            height: auto; 
+            border-radius: 5px; 
+            margin-top: 15px; 
+            border: 1px solid #ccc;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -42,7 +52,7 @@
     {% if not session.user %}
         <div class="alert">
             <h3>🔐 Přihlášení do správy</h3>
-            <p>Pro přístup k administrátorským funkcím (mazání dat) se prosím přihlaste.</p>
+            <p>Pro přístup k administrátorským funkcím se prosím přihlaste.</p>
             <form action="/login" method="post">
                 <input type="text" name="username" placeholder="Uživatelské jméno" required style="padding: 8px; width: 200px;">
                 <button type="submit" style="padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px;">Vstoupit</button>
@@ -51,28 +61,30 @@
     {% else %}
         <div class="alert" style="background: #d4edda; border-color: #28a745;">
             <h3>Vítejte, {{ session.user }}!</h3>
-            <p>Jste přihlášen. V sekci <strong>Žebříček</strong> nyní vidíte rozšířené možnosti správy dat.</p>
+            <p>Jste přihlášen k portálu správy výsledků.</p>
         </div>
         
         {% if session.is_admin %}
             <div class="admin-section">
                 <h3 style="color: #dc3545;">🛠️ Administrátorský režim</h3>
-                <p>Máte oprávnění k operacím <strong>DELETE</strong> a <strong>UPDATE</strong> v databázi. Veškeré změny se projeví okamžitě i v herní aplikaci.</p>
+                <p>Máte oprávnění k operaci <strong>DELETE</strong> v databázi.</p>
             </div>
         {% endif %}
     {% endif %}
 
-    <h2>📖 O programu a ukázky</h2>
-    <p>Mancala je logická desková hra pro dva hráče. Tato digitální verze kombinuje výkonné <strong>Python</strong> jádro s webovým rozhraním pro přehlednou správu výsledků.</p>
+    <h2>📖 O programu</h2>
+    <p>Mancala je logická desková hra pro dva hráče. Tato digitální verze kombinuje výkonné <strong>Python</strong> jádro s webovým rozhraním.</p>
     
+    <h2>📜 Pravidla hry</h2>
+    <p>Níže naleznete grafické znázornění základních pravidel a herní mechaniky rozsévání kamenů.</p>
     <div class="grid">
         <div class="card">
-            <h4>Herní GUI (Pygame)</h4>
-            <p>Hra nabízí plynulé animace, reálnou fyziku semen a možnost nastavení v JSON souboru.</p>
+            <h4>Základy a cíl hry</h4>
+            <img src="web/imgs/pravidla1.png" alt="Pravidla část 1" class="display-img">
         </div>
         <div class="card">
-            <h4>Webová správa (Flask)</h4>
-            <p>Umožňuje sledovat globální statistiky a historii zápasů přes SQL JOIN dotazy.</p>
+            <h4>Speciální tahy</h4>
+            <img src="web/imgs/pravidla2.png" alt="Pravidla část 2" class="display-img">
         </div>
     </div>
 
@@ -97,15 +109,8 @@ FUNKCE proved_tah(index_jamky):
             pocet_kamenu -= 1
     
     POKUD posledni_kamen_v_mancale:
-        hrac_tahne_znovu() -- Bonusový tah
-    POKUD posledni_kamen_do_vlastni_prazdne:
-        zajmi_souperovy_kameny() -- Strategický zisk
+        hrac_tahne_znovu()
     </code>
-
-    <h3>Databázové schéma (ER diagram)</h3>
-    <p>Databáze je navržena v <strong>Boyce-Coddově normální formě (BCNF)</strong> pro eliminaci redundance dat.</p>
-    
-    
 
     <div class="grid">
         <div class="card">

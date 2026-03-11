@@ -3,17 +3,28 @@ from flask import Flask, render_template, request, session, redirect, url_for
 import sys
 import os
 
-# Add database_local to path
+# --- LOGIKA PRO IMPORTY MIMO SLOŽKU ---
+# 1. Získáme cestu ke složce, kde leží tento soubor (web)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(BASE_DIR, "database_local"))
+# 2. Získáme cestu o úroveň výš (kořen projektu maturitni_projekt1)
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
-from db_manager_local import get_leaderboard, delete_user, save_game_result
+# 3. Přidáme kořen projektu do sys.path, aby Python viděl složku 'database_local'
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-app = Flask(__name__, template_folder='templates')
+# Teď už můžeme importovat pomocí tečkové notace: složka.soubor
+try:
+    from database_local.db_manager_local import get_leaderboard, delete_user, save_game_result
+except ImportError as e:
+    print(f"Chyba: Nepodařilo se najít databázový modul. Zkontrolujte strukturu složek. {e}")
+# --------------------------------------
+
+app = Flask(__name__, 
+            template_folder='templates',
+            static_url_path='/imgs',     # URL adresa v prohlížeči bude začínat /imgs
+            static_folder='imgs')        # Fyzická složka v projektu se jmenuje imgs
 app.secret_key = 'your-secret-key-mancala'
-
-# NOTE: Removed init_db() call - the game already initializes it
-# If you need to initialize fresh, delete mancala.db manually
 
 # Hardcoded credentials for demo
 USERS = {
@@ -25,19 +36,22 @@ USERS = {
 
 @app.before_request
 def check_session():
-    """Ensure user data is available in templates."""
+    """Zajišťuje, že data o uživateli jsou dostupná v šablonách."""
     if 'user' not in session:
         session['user'] = None
         session['is_admin'] = False
 
 @app.route('/')
 def index():
-    """Homepage with login form."""
+    """
+    Hlavní stránka s popisem projektu, pravidly a autory.
+    Zde se zobrazují i tvé nahrané obrázky.
+    """
     return render_template('index.html')
 
 @app.route('/login', methods=['POST'])
 def login():
-    """Handle user login."""
+    """Zpracuje přihlášení uživatele."""
     username = request.form.get('username', '').strip()
     
     if username in USERS:
@@ -49,24 +63,23 @@ def login():
 
 @app.route('/logout')
 def logout():
-    """Handle user logout."""
+    """Odhlášení uživatele."""
     session.clear()
     return redirect(url_for('index'))
 
 @app.route('/zebricek')
 def zebricek():
-    """Display leaderboard from database."""
+    """Zobrazení databázových dat - žebříček hráčů (využívá JOIN v SQL)."""
     try:
         hraci = get_leaderboard()
-        print(f"DEBUG: Leaderboard data: {hraci}")  # Debug output
     except Exception as e:
-        print(f"ERROR fetching leaderboard: {e}")
+        print(f"Chyba při čtení z DB: {e}")
         hraci = []
     return render_template('zebricek.html', hraci=hraci)
 
 @app.route('/smazat_hrace/<int:user_id>')
 def smazat_hrace(user_id):
-    """Delete a user (admin only)."""
+    """Smaže uživatele z DB (přístupné pouze pro admina)."""
     if not session.get('is_admin'):
         return redirect(url_for('zebricek'))
     
