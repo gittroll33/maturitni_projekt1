@@ -2,31 +2,23 @@
 
 Mancala
 
-## Použité knihovny
+Instalace a spuštění 
 
-Flask==3.1.3
-mysql==0.0.3
-mysqlclient==2.2.7
-pygame==2.6.1
+Doporučuje se spustit projekt ve virtuálním prostředí, aby nedocházelo k ovlivnění systémových knihoven.
+
+1. **Vytvoření virtuálního prostředí:**
+   ```bash
+   python -m venv venv
 
 
 ```bash
-pip install foobar
+pip install -r requirements.txt
 ```
 
 ## Jak hrát
 
 ```python
-import foobar
-
-# returns 'words'
-foobar.pluralize('word')
-
-# returns 'geese'
-foobar.pluralize('goose')
-
-# returns 'phenomenon'
-foobar.singularize('phenomena')
+import pygame
 ```
 
 
