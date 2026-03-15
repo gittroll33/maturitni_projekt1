@@ -2,9 +2,13 @@
 
 Mancala
 
-## Instalace
+## Použité knihovny
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Flask==3.1.3
+mysql==0.0.3
+mysqlclient==2.2.7
+pygame==2.6.1
+
 
 ```bash
 pip install foobar
