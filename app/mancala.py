@@ -71,9 +71,43 @@ except:
 #  ČÁST 2 — HERNÍ LOGIKA
 # ==============================
 
-# Inicializace desky: 0-5 (hráč dole), 6 (pokladnice vpravo), 7-12 (hráč nahoře), 13 (pokladnice vlevo)
-board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]
-current_player = 0 
+# --- Dynamická konfigurace ---
+PITS_PER_SIDE = 7
+SEEDS_PER_PIT = 4
+
+def total_holes():
+    return PITS_PER_SIDE * 2 + 2
+
+def index_p1_mancala():
+    return PITS_PER_SIDE
+
+def index_p2_mancala():
+    return 2 * PITS_PER_SIDE + 1
+
+def p1_pit_indices():
+    return list(range(0, PITS_PER_SIDE))
+
+def p2_pit_indices():
+    return list(range(PITS_PER_SIDE + 1, 2 * PITS_PER_SIDE + 1))
+
+def is_p1_pit(index):
+    return 0 <= index < PITS_PER_SIDE
+
+def is_p2_pit(index):
+    return PITS_PER_SIDE + 1 <= index < 2 * PITS_PER_SIDE + 1
+
+def own_mancala(player):
+    return index_p1_mancala() if player == 0 else index_p2_mancala()
+
+def opponent_mancala(player):
+    return index_p2_mancala() if player == 0 else index_p1_mancala()
+
+def opposite_pit(index):
+    # antiparallel across board excluding mancalas
+    return 2 * PITS_PER_SIDE - index
+
+board = [SEEDS_PER_PIT] * PITS_PER_SIDE + [0] + [SEEDS_PER_PIT] * PITS_PER_SIDE + [0]
+current_player = 0
 game_over = False
 db_updated = False # PŘIDÁNO: Aby se do DB zapsalo jen jednou za hru
 
@@ -87,7 +121,7 @@ def reset_game():
     Uvede hru do původního stavu. Resetuje herní desku, počítadlo tahů a stav ukončení.
     """
     global board, current_player, game_over, db_updated
-    board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0]
+    board = [SEEDS_PER_PIT] * PITS_PER_SIDE + [0] + [SEEDS_PER_PIT] * PITS_PER_SIDE + [0]
     current_player = 0
     game_over = False
     db_updated = False # PŘIDÁNO: Reset příznaku uložení
@@ -98,38 +132,39 @@ def make_move(start_index):
     """
     global current_player, board, game_over
     stones = board[start_index]
-    if stones == 0: return 
+    if stones == 0: return
     board[start_index] = 0
-    
+
     current_pos = start_index
     while stones > 0:
-        current_pos = (current_pos + 1) % 14
+        current_pos = (current_pos + 1) % total_holes()
         # Pravidlo: Vynechání soupeřovy pokladnice
-        if current_player == 0 and current_pos == 13: continue
-        if current_player == 1 and current_pos == 6: continue
+        if current_pos == opponent_mancala(current_player):
+            continue
         board[current_pos] += 1
         stones -= 1
 
     # Pravidlo: Zajetí semen (Capture)
     if board[current_pos] == 1:
-        if current_player == 0 and 0 <= current_pos <= 5:
-            opposite = 12 - current_pos
+        if current_player == 0 and is_p1_pit(current_pos):
+            opposite = opposite_pit(current_pos)
             if board[opposite] > 0:
-                board[6] += board[opposite] + board[current_pos]
+                board[own_mancala(0)] += board[opposite] + board[current_pos]
                 board[opposite] = 0
                 board[current_pos] = 0
-        elif current_player == 1 and 7 <= current_pos <= 12:
-            opposite = 12 - current_pos
+        elif current_player == 1 and is_p2_pit(current_pos):
+            opposite = opposite_pit(current_pos)
             if board[opposite] > 0:
-                board[13] += board[opposite] + board[current_pos]
+                board[own_mancala(1)] += board[opposite] + board[current_pos]
                 board[opposite] = 0
                 board[current_pos] = 0
 
     check_end_game()
-    
+
     # Pravidlo: Tah navíc (pokud poslední semeno skončí ve vlastní pokladnici)
-    if (current_player == 0 and current_pos == 6) or (current_player == 1 and current_pos == 13):
-        return 
+    if current_pos == own_mancala(current_player):
+        return
+
     current_player = 1 - current_player
 
 def check_end_game():
@@ -137,17 +172,18 @@ def check_end_game():
     Kontroluje, zda jsou splněny podmínky pro ukončení hry.
     """
     global board, game_over, db_updated
-    if sum(board[0:6]) == 0 or sum(board[7:13]) == 0:
-        board[6] += sum(board[0:6])
-        board[13] += sum(board[7:13])
-        for i in range(6):
+    if sum(board[i] for i in p1_pit_indices()) == 0 or sum(board[i] for i in p2_pit_indices()) == 0:
+        board[own_mancala(0)] += sum(board[i] for i in p1_pit_indices())
+        board[own_mancala(1)] += sum(board[i] for i in p2_pit_indices())
+        for i in p1_pit_indices():
             board[i] = 0
-            board[i+7] = 0
+        for i in p2_pit_indices():
+            board[i] = 0
         game_over = True
 
         # --- PŘIDÁNO: Zápis skutečných jmen do DB ---
         if not db_updated and save_game_result:
-            save_game_result(player1_name, board[6], player2_name, board[13])
+            save_game_result(player1_name, board[own_mancala(0)], player2_name, board[own_mancala(1)])
             db_updated = True
             print(f"💾 Výsledek uložen do DB: {player1_name} vs {player2_name}")
 
@@ -187,35 +223,49 @@ def draw_board(screen):
         screen.blit(pygame.transform.scale(background_texture, (w, h)), (0, 0))
     else:
         screen.fill((180, 140, 100))
-    
+
     cx = w // 2
-    # Vykreslení 6 důlků pro každého hráče
-    for i in range(6):
-        x = cx - 350 + i * 120
-        for y_off, idx in [(h//2 + 30, i), (h//2 - 120, 12-i)]:
+    pit_size = min(90, max(50, (w - 400) // PITS_PER_SIDE))
+    spacing = pit_size + 30
+    p2_y = h // 2 - pit_size - 20
+    p1_y = h // 2 + 20
+    start_x = cx - (PITS_PER_SIDE - 1) * spacing / 2
+
+    # Vykreslení důlků pro hráče
+    for i in range(PITS_PER_SIDE):
+        x = int(start_x + i * spacing)
+        # dolní řada = hráč 1
+        idx_p1 = i
+        # horní řada = hráč 2 (reverzní orientace)
+        idx_p2 = 2 * PITS_PER_SIDE - i
+
+        for y_off, idx in [(p1_y, idx_p1), (p2_y, idx_p2)]:
             if hole_texture:
-                screen.blit(pygame.transform.scale(hole_texture, (90, 90)), (x, y_off))
+                screen.blit(pygame.transform.scale(hole_texture, (pit_size, pit_size)), (x, y_off))
             else:
-                pygame.draw.ellipse(screen, (100, 70, 40), (x, y_off, 90, 90))
-            
-            draw_seeds(screen, board[idx], x + 45, y_off + 45)
+                pygame.draw.ellipse(screen, (100, 70, 40), (x, y_off, pit_size, pit_size))
+
+            draw_seeds(screen, board[idx], x + pit_size // 2, y_off + pit_size // 2, radius=int(pit_size * 0.3))
             num = font.render(str(board[idx]), True, (255, 255, 255))
-            screen.blit(num, (x + 35, y_off + 65))
+            screen.blit(num, (x + pit_size // 2 - num.get_width() // 2, y_off + pit_size // 2 - num.get_height() // 2))
 
     # Vykreslení pokladnic (Mancaly)
-    pygame.draw.rect(screen, (80, 50, 30), (cx + 390, h // 2 - 90, 80, 180), border_radius=20)
-    pygame.draw.rect(screen, (40, 25, 15), (cx + 390, h // 2 - 90, 80, 180), 3, border_radius=20)
-    pygame.draw.rect(screen, (80, 50, 30), (cx - 470, h // 2 - 90, 80, 180), border_radius=20)
-    pygame.draw.rect(screen, (40, 25, 15), (cx - 470, h // 2 - 90, 80, 180), 3, border_radius=20)
+    mancala_width = pit_size
+    mancala_height = pit_size * 2 + 20
+    p1_mancala_x = int(start_x + PITS_PER_SIDE * spacing)
+    p2_mancala_x = int(start_x - spacing)
+    mancala_y = h // 2 - mancala_height // 2
 
-    draw_seeds(screen, board[6], cx + 430, h // 2, radius=25)
-    draw_seeds(screen, board[13], cx - 430, h // 2, radius=25)
+    for x, idx in [(p1_mancala_x, index_p1_mancala()), (p2_mancala_x, index_p2_mancala())]:
+        pygame.draw.rect(screen, (80, 50, 30), (x, mancala_y, mancala_width, mancala_height), border_radius=20)
+        pygame.draw.rect(screen, (40, 25, 15), (x, mancala_y, mancala_width, mancala_height), 3, border_radius=20)
+        draw_seeds(screen, board[idx], x + mancala_width // 2, mancala_y + mancala_height // 2, radius=int(mancala_width * 0.25))
 
-    # --- UPRAVENO: Zobrazení jmen u pokladnic ---
-    p1_label = font.render(f"{player1_name}: {board[6]}", True, (255, 255, 255))
-    p2_label = font.render(f"{player2_name}: {board[13]}", True, (255, 255, 255))
-    screen.blit(p1_label, (cx + 380, h // 2 + 100))
-    screen.blit(p2_label, (cx - 480, h // 2 + 100))
+    # --- Zobrazení jmen u pokladnic ---
+    p1_label = font.render(f"{player1_name}: {board[index_p1_mancala()]}", True, (255, 255, 255))
+    p2_label = font.render(f"{player2_name}: {board[index_p2_mancala()]}", True, (255, 255, 255))
+    screen.blit(p1_label, (p1_mancala_x, mancala_y + mancala_height + 10))
+    screen.blit(p2_label, (p2_mancala_x, mancala_y + mancala_height + 10))
 
     # Stavové texty
     if not game_over:
@@ -224,8 +274,8 @@ def draw_board(screen):
         t = font.render(f"Na tahu: {status}", True, color)
         screen.blit(t, (cx - t.get_width() // 2, 40))
     else:
-        if board[6] > board[13]: res = f"{player1_name} vyhrál!"
-        elif board[13] > board[6]: res = f"{player2_name} vyhrál!"
+        if board[index_p1_mancala()] > board[index_p2_mancala()]: res = f"{player1_name} vyhrál!"
+        elif board[index_p2_mancala()] > board[index_p1_mancala()]: res = f"{player2_name} vyhrál!"
         else: res = "Remíza!"
         t = MENU_FONT.render(res, True, (255, 215, 0))
         screen.blit(t, (cx - t.get_width() // 2, 30))
@@ -243,10 +293,20 @@ def draw_text_center(screen, text, y, color=(240, 240, 240)):
 def index_from_click(pos, screen):
     w, h = screen.get_size()
     cx, mx, my = w // 2, pos[0], pos[1]
-    for i in range(6):
-        x_pos = cx - 350 + i * 120
-        if h // 2 + 30 <= my <= h // 2 + 120 and x_pos <= mx <= x_pos + 90: return i
-        if h // 2 - 120 <= my <= h // 2 - 30 and x_pos <= mx <= x_pos + 90: return 12 - i
+    pit_size = min(90, max(50, (w - 400) // PITS_PER_SIDE))
+    spacing = pit_size + 30
+    p2_y = h // 2 - pit_size - 20
+    p1_y = h // 2 + 20
+    start_x = cx - (PITS_PER_SIDE - 1) * spacing / 2
+
+    for i in range(PITS_PER_SIDE):
+        x = int(start_x + i * spacing)
+        # spodní řada
+        if p1_y <= my <= p1_y + pit_size and x <= mx <= x + pit_size:
+            return i
+        # horní řada (p2 reversed)
+        if p2_y <= my <= p2_y + pit_size and x <= mx <= x + pit_size:
+            return 2 * PITS_PER_SIDE - i
     return None
 
 state = "MENU"
@@ -307,7 +367,7 @@ while True:
             elif state == "GAME" and not game_over:
                 idx = index_from_click((mx, my), screen)
                 if idx is not None:
-                    if (current_player == 0 and 0 <= idx <= 5) or (current_player == 1 and 7 <= idx <= 12):
+                    if (current_player == 0 and is_p1_pit(idx)) or (current_player == 1 and is_p2_pit(idx)):
                         make_move(idx)
 
     # Vykreslování podle stavu aplikace
