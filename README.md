@@ -1,5 +1,5 @@
 # Mancala
-Mancala je jedna z nejstarších a nejoblíbenějších abstraktních strategických her pro dva hráče, často označovaná jako „kalaha“. Cílem hry je přerozdělovat kameny v jamkách na herní desce a nasbírat jich do své pokladnice co nejvíce
+Mancala je jedna z nejstarších a nejoblíbenějších abstraktních strategických her pro dva hráče, často označovaná jako „kalaha“. Cílem hry je přerozdělovat kameny v jamkách na herní desce a nasbírat jich do své pokladnice co nejvíce.
 ## O projektu
 Projekt obsahuje hru v pygame, která je propojena s lokální databází. Výsledky se zobrazují na webu udělaném ve Flasku.
 ## Instalace a spuštění 
