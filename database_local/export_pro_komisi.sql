@@ -14,6 +14,8 @@ INSERT INTO "ucast_v_zapasu" VALUES(5,5,23,0);
 INSERT INTO "ucast_v_zapasu" VALUES(6,5,25,1);
 INSERT INTO "ucast_v_zapasu" VALUES(5,6,18,0);
 INSERT INTO "ucast_v_zapasu" VALUES(7,6,30,1);
+INSERT INTO "ucast_v_zapasu" VALUES(8,7,22,0);
+INSERT INTO "ucast_v_zapasu" VALUES(9,7,34,1);
 CREATE TABLE uzivatele (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     jmeno TEXT NOT NULL UNIQUE,
@@ -27,6 +29,8 @@ INSERT INTO "uzivatele" VALUES(4,'Lucka','lucka@volny.cz','heslo3','user');
 INSERT INTO "uzivatele" VALUES(5,'hynek','hynek@mancala.local','password123','user');
 INSERT INTO "uzivatele" VALUES(6,'karel','karel@mancala.local','password123','user');
 INSERT INTO "uzivatele" VALUES(7,'barel','barel@mancala.local','password123','user');
+INSERT INTO "uzivatele" VALUES(8,'pat ','pat @mancala.local','password123','user');
+INSERT INTO "uzivatele" VALUES(9,'mat','mat@mancala.local','password123','user');
 CREATE TABLE zapasy (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     datum TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -37,7 +41,8 @@ INSERT INTO "zapasy" VALUES(3,'2026-02-08 16:41:00');
 INSERT INTO "zapasy" VALUES(4,'2026-02-08 16:47:57');
 INSERT INTO "zapasy" VALUES(5,'2026-03-11 10:50:45');
 INSERT INTO "zapasy" VALUES(6,'2026-03-11 11:11:30');
+INSERT INTO "zapasy" VALUES(7,'2026-03-24 11:50:21');
 DELETE FROM "sqlite_sequence";
-INSERT INTO "sqlite_sequence" VALUES('uzivatele',7);
-INSERT INTO "sqlite_sequence" VALUES('zapasy',6);
+INSERT INTO "sqlite_sequence" VALUES('uzivatele',9);
+INSERT INTO "sqlite_sequence" VALUES('zapasy',7);
 COMMIT;
