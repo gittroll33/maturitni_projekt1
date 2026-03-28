@@ -11,7 +11,7 @@ sys.path.append(os.path.join(BASE_DIR, "..", "database_local"))
 try:
     from db_manager_local import save_game_result
 except ImportError as e:
-    print(f"❌ Napojení na DB selhalo: {e}")
+    print(f"Napojení na DB selhalo: {e}")
     save_game_result = None
 # --------------------------------------------------
 
@@ -228,20 +228,29 @@ def make_move(start_index):
     global current_player, board, game_over, MOVE_COUNT, r_clicks, previous_board, previous_player
     # Uložíme si aktuální stav, než ho změníme s použitím .copy()
     previous_board = board.copy()
+    # Uložíme si, kdo je na tahu, abychom se mohli vrátit zpět v případě Undo
     previous_player = current_player
+    # Zjistíme, kolik kuliček (stones) je v důlku, na který hráč klikl
     stones = board[start_index]
+    #Pokud je důlek prázdný, tah nelze provést, proto funkci okamžitě ukončíme
     if stones == 0: return
+    # Vyjmeme kuličky z vybraného důlku (nastavíme jeho hodnotu na 0)
     board[start_index] = 0
+    # Zvýšíme celkové počítadlo provedených tahů ve hře
     MOVE_COUNT += 1
     r_clicks = 0 # Reset počítadla kliků pro reset po každém tahu
 
+    # Nastavíme si počáteční pozici pro rozesévání na index, ze kterého jsme kuličky vzali
     current_pos = start_index
     while stones > 0:
+        # Posuneme se na další důlek v pořadí (modulo '%' zajistí, že po posledním indexu skočíme na 0)
         current_pos = (current_pos + 1) % total_holes()
         # Pravidlo: Vynechání soupeřovy pokladnice
         if current_pos == opponent_mancala(current_player):
             continue
+        # Vhodíme jednu kuličku do aktuálního důlku
         board[current_pos] += 1
+        # Snížíme počet kuliček, které nám zbývají v ruce
         stones -= 1
         
 
@@ -305,7 +314,7 @@ def check_end_game():
         if not db_updated and save_game_result:
             save_game_result(player1_name, board[own_mancala(0)], player2_name, board[own_mancala(1)])
             db_updated = True
-            print(f"💾 Výsledek uložen do DB: {player1_name} vs {player2_name}")
+            print(f"Výsledek uložen do DB: {player1_name} vs {player2_name}")
 
 # ==============================
 #  ČÁST 3 — GRAFIKA A VYKRESLOVÁNÍ
@@ -352,10 +361,14 @@ def draw_name_input(screen):
     """
     screen.fill((30, 30, 30))
     draw_text_center(screen, "ZADEJTE JMÉNA HRÁČŮ", 100, (255, 215, 0))
+    # LOGIKA BAREV: Pokud hráč právě píše do pole 1, barva (c1) bude bílá (255, 255, 255).
+    # Pokud ne, barva bude šedá (100, 100, 100), aby bylo vidět, že pole není aktivní.
     c1 = (255, 255, 255) if active_input == 1 else (100, 100, 100)
     c2 = (255, 255, 255) if active_input == 2 else (100, 100, 100)
+    # Za jméno přidá znak '|' (kurzor), pokud je pole aktivní, jinak nepřidá nic.
     draw_text_center(screen, f"Hráč 1 (Dole): {player1_name}{'|' if active_input == 1 else ''}", 250, c1)
     draw_text_center(screen, f"Hráč 2 (Nahoře): {player2_name}{'|' if active_input == 2 else ''}", 350, c2)
+    # Pokud obě jména obsahují aspoň jeden znak (nejsou prázdná), zobrazí se nápověda pro start.
     if player1_name.strip() and player2_name.strip():
         draw_text_center(screen, "Stiskni ENTER pro start", 500, (0, 255, 0))
 
@@ -368,7 +381,10 @@ def draw_board(screen):
         screen (pygame.Surface): Plocha pro vykreslení.
     """
     width, height = screen.get_size()
+    # PODMÍNKA: Zkontroluje, zda se podařilo načíst obrázek pozadí (background_texture).
     if background_texture:
+        # Pokud textura existuje, nejdříve ji pomocí 'transform.scale' roztáhne na celou velikost okna.
+        # Poté ji pomocí 'blit' vykreslí na pozici (0, 0) – tedy do levého horního rohu.
         screen.blit(pygame.transform.scale(background_texture, (width, height)), (0, 0))
     else:
         screen.fill((180, 140, 100))
@@ -398,27 +414,27 @@ def draw_board(screen):
 
     # Vykreslení důlků pro hráče
     for i in range(PITS_PER_SIDE):
-        x = int(start_x + i * spacing)
+        pit_x = int(start_x + i * spacing)
         # dolní řada = hráč 1
         index_p1 = i
         # horní řada = hráč 2 (reverzní orientace)
         index_p2 = 2 * PITS_PER_SIDE - i
 
         # 1. Prochází dvojice: (svislá pozice, index v poli board) pro obě řady jamek v jednom sloupci
-        for y_off, index in [(p1_y, index_p1), (p2_y, index_p2)]:
+        for y_offset, index in [(p1_y, index_p1), (p2_y, index_p2)]:
             # 2. Kontrola, zda se podařilo načíst obrázek (texturu) pro jamku
             if hole_texture:
-                # 3. Změní velikost textury na aktuální pit_size a vykreslí ji na souřadnice [x, y_off]
-                screen.blit(pygame.transform.scale(hole_texture, (pit_size, pit_size)), (x, y_off))
+                # 3. Změní velikost textury na aktuální pit_size a vykreslí ji na souřadnice [pit_x, y_offset]
+                screen.blit(pygame.transform.scale(hole_texture, (pit_size, pit_size)), (pit_x, y_offset))
             else:
                 # 4. Pokud textura chybí, vykreslí jamku jako hnědou elipsu (náhradní řešení)
-                pygame.draw.ellipse(screen, (100, 70, 40), (x, y_off, pit_size, pit_size))
+                pygame.draw.ellipse(screen, (100, 70, 40), (pit_x, y_offset, pit_size, pit_size))
             # 5. Zavolá funkci pro vykreslení kuliček (semen) rozptýlených kolem středu jamky
-            draw_seeds(screen, board[index], x + pit_size // 2, y_off + pit_size // 2, radius=int(pit_size * 0.3))
+            draw_seeds(screen, board[index], pit_x + pit_size // 2, y_offset + pit_size // 2, radius=int(pit_size * 0.3))
             # 6. Vytvoří (vyrenderuje) textový objekt s číslem, které odpovídá počtu semen v dané jamce
             num = font.render(str(board[index]), True, (255, 255, 255))
             # 7. Vykreslí toto číslo přesně na střed jamky (výpočet: střed jamky mínus polovina šířky/výšky textu)
-            screen.blit(num, (x + pit_size // 2 - num.get_width() // 2, y_off + pit_size // 2 - num.get_height() // 2))
+            screen.blit(num, (pit_x + pit_size // 2 - num.get_width() // 2, y_offset + pit_size // 2 - num.get_height() // 2))
 
     # Vykreslení pokladnic (Mancaly)
     mancala_width = pit_size
@@ -427,10 +443,10 @@ def draw_board(screen):
     p2_mancala_x = int(start_x - spacing)
     mancala_y = height // 2 - mancala_height // 2
 
-    for x, index in [(p1_mancala_x, index_p1_mancala()), (p2_mancala_x, index_p2_mancala())]:
-        pygame.draw.rect(screen, (80, 50, 30), (x, mancala_y, mancala_width, mancala_height), border_radius=20)
-        pygame.draw.rect(screen, (40, 25, 15), (x, mancala_y, mancala_width, mancala_height), 3, border_radius=20)
-        draw_seeds(screen, board[index], x + mancala_width // 2, mancala_y + mancala_height // 2, radius=int(mancala_width * 0.25))
+    for pit_x, index in [(p1_mancala_x, index_p1_mancala()), (p2_mancala_x, index_p2_mancala())]:
+        pygame.draw.rect(screen, (80, 50, 30), (pit_x, mancala_y, mancala_width, mancala_height), border_radius=20)
+        pygame.draw.rect(screen, (40, 25, 15), (pit_x, mancala_y, mancala_width, mancala_height), 3, border_radius=20)
+        draw_seeds(screen, board[index], pit_x + mancala_width // 2, mancala_y + mancala_height // 2, radius=int(mancala_width * 0.25))
 
    # --- DYNAMICKÉ ZABARVENÍ PODLE SKÓRE ---
     s1 = board[index_p1_mancala()]
@@ -467,7 +483,7 @@ def draw_board(screen):
         guide = font.render("ESC pro menu", True, (200, 200, 200))
         screen.blit(guide, (center_screen_x - guide.get_width() // 2, height - 50))
     
-    # --- Zobrazení potvrzení resetu (úplně na konec funkce) ---
+    # --- Zobrazení potvrzení resetu ---
     if r_clicks == 1:
         # Vytvoříme žlutý text
         confirmation_text = font.render("Opravdu restartovat? Stiskni znovu R", True, (255, 255, 0))
@@ -504,7 +520,7 @@ def index_from_click(pos, screen):
     Přepočítá souřadnice kliknutí myši na index konkrétní jamky.
 
     Args:
-        pos (tuple): Souřadnice kliknutí (x, y).
+        pos (tuple): Souřadnice kliknutí (pit_x, y).
         screen (pygame.Surface): Plocha použitá pro dynamický výpočet rozložení.
 
     Returns:
@@ -516,7 +532,7 @@ def index_from_click(pos, screen):
     center_screen_x, mouse_x, mouse_y = width // 2, pos[0], pos[1]
     # 3. Zopakuje stejný výpočet velikosti jamky jako ve 'draw_board', aby detekce seděla na grafiku
     pit_size = min(90, max(50, (width - 400) // PITS_PER_SIDE))
-    # 4. Definice rozestupů a vertikálních pozic obou řad (musí být shodné s vykreslováním
+    # 4. Definice rozestupů a vertikálních pozic obou řad (musí být shodné s vykreslováním)
     spacing = pit_size + 30
     p2_y = height // 2 - pit_size - 20
     p1_y = height // 2 + 20
@@ -525,13 +541,13 @@ def index_from_click(pos, screen):
     # 6. Prochází všechny sloupce jamek jednu po druhé
     for i in range(PITS_PER_SIDE):
         # 7. Vypočítá vodorovnou pozici X pro aktuální sloupec (i)
-        x = int(start_x + i * spacing)
+        pit_x = int(start_x + i * spacing)
         # 8. TEST PRO SPODNÍ ŘADU: Je kurzor v rozmezí Y (výška) a zároveň v rozmezí X (šířka) jamky?
-        if p1_y <= mouse_y <= p1_y + pit_size and x <= mouse_x <= x + pit_size:
+        if p1_y <= mouse_y <= p1_y + pit_size and pit_x <= mouse_x <= pit_x + pit_size:
             # Vrátí index (0 až 6), což odpovídá jamkám prvního hráče
             return i
         # 9. TEST PRO HORNÍ ŘADU: Stejný test, ale pro svislou souřadnici 'p2_y'
-        if p2_y <= mouse_y <= p2_y + pit_size and x <= mouse_x <= x + pit_size:
+        if p2_y <= mouse_y <= p2_y + pit_size and pit_x <= mouse_x <= pit_x + pit_size:
             # Vrátí index v opačném pořadí (pro PITS_PER_SIDE=7 to vrací indexy 14 až 8)
             return 2 * PITS_PER_SIDE - i
     return None
@@ -544,15 +560,18 @@ clock = pygame.time.Clock()
 
 # Hlavní smyčka aplikace
 while True:
+    # Kontrola příznaku 'apply_mode'. Pokud je True, hráč v nastavení změnil režim zobrazení.
     if apply_mode:
         if windowed_mode: screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
         else: screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         
+        # Uložení nové volby do slovníku a následný zápis do souboru (aby si hra volbu pamatovala).
         user_settings["windowed_mode"] = windowed_mode
         save_settings(user_settings)
         apply_mode = False
     
     mouse_x, mouse_y = pygame.mouse.get_pos()
+    # Prochází frontu událostí (klávesy, myš, systémové zprávy), které se nahromadily od minule.
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit(); sys.exit()
@@ -560,32 +579,39 @@ while True:
             # --- DEBUG OVLÁDÁNÍ (Šipky) ---
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
-                undo_offset_y += 5  # Posune text výš
+                undo_offset_y -= 5  # Posune text výš
             if event.key == pygame.K_DOWN:
-                undo_offset_y -= 5  # Posune text níž
+                undo_offset_y += 5  # Posune text níž
             if event.key == pygame.K_p:
                 print(f"Aktuální Y offset pro Undo: {undo_offset_y}")
         
         # --- Ovládání vstupu jmen ---
         if state == "NAME_INPUT" and event.type == pygame.KEYDOWN:
+            # --- KLÁVESA ENTER: Potvrzení zadání ---
             if event.key == pygame.K_RETURN:
+                # Pokud píše 1. hráč a jméno není prázdné (.strip() odstraní mezery), přepne na 2. hráče.
                 if active_input == 1 and player1_name.strip(): active_input = 2
+                # Pokud píše 2. hráč a jméno je v pořádku, přepne hru do stavu "GAME" a resetuje desku.
                 elif active_input == 2 and player2_name.strip(): 
                     state = "GAME"
                     reset_game()
             elif event.key == pygame.K_BACKSPACE:
+                # Pomocí "slicingu" [:-1] odstraní poslední znak z řetězce aktuálního hráče.
                 if active_input == 1: player1_name = player1_name[:-1]
                 else: player2_name = player2_name[:-1]
             elif event.key == pygame.K_ESCAPE: state = "MENU"
             else:
+                # LIMIT DÉLKY: Zkontroluje, zda jméno nepřesáhlo 12 znaků (aby se vešlo do UI).
                 if len(player1_name if active_input == 1 else player2_name) < 12:
+                    # FILTR: Povolí pouze alfanumerické znaky (písmena, čísla) nebo mezeru.
                     if event.unicode.isalnum() or event.unicode == " ":
+                        # Přidá stisknutý znak (event.unicode) k aktuálnímu jménu.
                         if active_input == 1: player1_name += event.unicode
                         else: player2_name += event.unicode
 
         if event.type == pygame.KEYDOWN:
             if state == "SETTINGS":
-                if event.key == pygame.K_RETURN: 
+                if event.key == pygame.K_RETURN: # RETURN = Enter
                     windowed_mode = not windowed_mode
                     apply_mode = True
                 if event.key == pygame.K_ESCAPE: state = "MENU"
@@ -593,8 +619,8 @@ while True:
                 if event.key == pygame.K_ESCAPE: state = "MENU"
                 if event.key == pygame.K_u:
                         if previous_board is not None: # Jen pokud už proběhl aspoň jeden tah
-                            board = previous_board.copy()
-                            current_player = previous_player
+                            board = previous_board.copy() # Obnoví stav herního pole
+                            current_player = previous_player # Vrátí tah správnému hráči
                             # Po použití Undo fotku smažeme, aby nešlo skákat do nekonečna 
                             previous_board = None
                             MOVE_COUNT -= 1 # Snížíme počet tahů o 1, protože se vracíme zpět
@@ -606,16 +632,27 @@ while True:
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if state == "MENU":
-                h_mid = screen.get_height() // 2
-                if h_mid - 80 < mouse_y < h_mid - 20: 
+                # Pomocná proměnná pro svislý střed obrazovky (pro výpočet tlačítek)
+                height_middle = screen.get_height() // 2
+                # DETEKCE TLAČÍTEK:
+                # Tlačítko HRÁT: Kontroluje, zda je myš v rozmezí Y pro první položku
+                if height_middle - 80 < mouse_y < height_middle - 20: 
+                    # Resetuje jména a přepne na obrazovku zadávání jmen
                     player1_name = ""; player2_name = ""; active_input = 1
                     state = "NAME_INPUT"
-                elif h_mid < mouse_y < h_mid + 50: state = "SETTINGS"
-                elif h_mid + 60 < mouse_y < h_mid + 140: pygame.quit(); sys.exit()
+                # Tlačítko NASTAVENÍ: Rozmezí Y pro druhou položku
+                elif height_middle < mouse_y < height_middle + 50: state = "SETTINGS"
+                # Tlačítko KONEC: Rozmezí Y pro poslední položku
+                elif height_middle + 60 < mouse_y < height_middle + 140: pygame.quit(); sys.exit()
             elif state == "GAME" and not game_over:
+                # PŘEVOD SOUŘADNIC: Funkce index_from_click zjistí, na kterou jamku (index) hráč klikl
                 index = index_from_click((mouse_x, mouse_y), screen)
                 if index is not None:
+                    # POJISTKA: Tah se provede jen pokud:
+                    # Je na tahu hráč 1 (0) a klikl na svou jamku (is_p1_pit)
+                    # NEBO je na tahu hráč 2 (1) a klikl na svou jamku (is_p2_pit)
                     if (current_player == 0 and is_p1_pit(index)) or (current_player == 1 and is_p2_pit(index)):
+                        # Pokud je vše v pořádku, spustí se samotná logika rozesévání kuliček
                         make_move(index)
 
     # Vykreslování podle stavu aplikace
@@ -634,5 +671,6 @@ while True:
     elif state == "GAME":
         draw_board(screen)
 
+    # AKTUALIZACE DISPLEJE: Vykreslí nakreslený snímek z paměti na monitor 
     pygame.display.flip()
     clock.tick(60)
