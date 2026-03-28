@@ -23,6 +23,12 @@ python web_portal.py
 ```
 
 Poté otevři prohlížeč na: http://127.0.0.1:5000
+4. **Spuštění hry**
+Ve složce `app` spusť:
+```bash
+python mancala.py
+```
+...a hraj v otevřeném python okně!
 
 
 ## Jak hrát
