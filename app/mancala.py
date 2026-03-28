@@ -630,7 +630,7 @@ while True:
                             reset_game()
                             r_clicks = 0
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if state == "MENU":
                 # Pomocná proměnná pro svislý střed obrazovky (pro výpočet tlačítek)
                 height_middle = screen.get_height() // 2
