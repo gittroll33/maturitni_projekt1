@@ -28,6 +28,7 @@ Ve složce `app` spusť:
 ```bash
 python mancala.py
 ```
+...a hraj v otevřeném python okně!
 
 
 ## Jak hrát
