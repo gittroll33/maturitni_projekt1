@@ -6,7 +6,7 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; line-height: 1.6; margin: 0; background: #f0f2f5; color: #333; }
         .container { max-width: 950px; margin: 40px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { color: #007bff; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h1 { color: #007bff; border-bottom: 2px solid #eee; padding-bottom: 10px; text-align: center; }
         h2 { color: #444; margin-top: 30px; border-left: 4px solid #007bff; padding-left: 10px; }
         .nav { background: #333; padding: 15px 0; text-align: center; position: sticky; top: 0; z-index: 1000; }
         .nav a { color: white; margin: 0 15px; text-decoration: none; font-weight: bold; transition: 0.3s; }
@@ -16,9 +16,12 @@
         .admin-section { border: 2px dashed #dc3545; padding: 15px; margin-top: 20px; border-radius: 5px; background: #fff5f5; }
         .badge { background: #6c757d; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.9em; margin-right: 5px; }
         .grid { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
-        .card { flex: 1; min-width: 250px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; flex-direction: column; justify-content: space-between; }
+        .card { flex: 1; min-width: 250px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; flex-direction: column; justify-content: center; }
+        .card2 { flex: 1; min-width: 250px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; display: flex; flex-direction: column; justify-content: center; margin-top: 20px; }
         .git-btn { display: inline-block; background: #24292e; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; margin-top: 10px; }
         .git-btn:hover { background: #444; }
+        
+        /* Styl pro obrázky v sekcích */
         .display-img { 
             max-width: 100%; 
             height: auto; 
@@ -43,14 +46,14 @@
     <h1>Hra Mancala - Maturitní portál</h1>
 
     <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #eee;">
-        <p><strong>Autor:</strong> David Klábeneš</p>
         <a href="https://github.com/gittroll33/maturitni_projekt1" class="git-btn">Zdrojový kód na GitHubu</a>
+        <p><strong>Autor:</strong> David Klábeneš</p>
     </div>
 
     {% if not session.user %}
         <div class="alert">
             <h3>Přihlášení do správy</h3>
-            <p>Pro přístup k administrátorským funkcím se prosím přihlaste.</p>
+            <p>Pro přístup k administrátorským funkcím se prosím přihlaste. (např. admin)</p>
             <form action="/login" method="post">
                 <input type="text" name="username" placeholder="Uživatelské jméno" required style="padding: 8px; width: 200px;">
                 <button type="submit" style="padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px;">Vstoupit</button>
@@ -118,7 +121,7 @@ FUNKCE proved_tah(index_jamky):
             Uživatelé a Zápasy jsou propojeny přes vazební tabulku se skóre.
         </div>
     </div>
-    <div class="card">
+    <div class="card2">
             <strong>ER Diagram</strong><br>
             <img src="/imgs/db_er_diagram.png" alt="ER Diagram" class="display-img">
         </div>
